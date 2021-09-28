@@ -7,9 +7,9 @@ import (
 )
 
 var deleteSnapshotCmd = &cobra.Command{
-	Use:     "deletesp",
-	Short:   "Delete VMs Snapshot",
-	Aliases: []string{"dsp"},
+	Use:     "delete",
+	Short:   "Delete Snapshot",
+	Aliases: []string{"d"},
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) < 2 {
 			_ = cmd.Help()
@@ -20,5 +20,5 @@ var deleteSnapshotCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(deleteSnapshotCmd)
+	snapshotCmd.AddCommand(deleteSnapshotCmd)
 }

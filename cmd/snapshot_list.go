@@ -7,9 +7,9 @@ import (
 )
 
 var listSnapshotCmd = &cobra.Command{
-	Use:     "listSnapshot",
-	Short:   "List VM Snapshot",
-	Aliases: []string{"lsp"},
+	Use:     "list",
+	Short:   "List Snapshot",
+	Aliases: []string{"l", "ls"},
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) != 1 {
 			_ = cmd.Help()
@@ -20,5 +20,5 @@ var listSnapshotCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(listSnapshotCmd)
+	snapshotCmd.AddCommand(listSnapshotCmd)
 }

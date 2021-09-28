@@ -9,9 +9,9 @@ var listAll bool
 var lsCmd = &cobra.Command{
 	Use:     "ls",
 	Aliases: []string{"list"},
-	Short:   "List VMs",
+	Short:   "List VM",
 	Run: func(cmd *cobra.Command, args []string) {
-		helper.ListVMs(listAll)
+		helper.ListVM(listAll)
 	},
 }
 

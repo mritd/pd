@@ -8,9 +8,9 @@ import (
 )
 
 var switchSnapshotCmd = &cobra.Command{
-	Use:   "switchSnapshot",
-	Short: "Switch VM Snapshot",
-	Aliases: []string{"ssp"},
+	Use:     "switch",
+	Short:   "Switch Snapshot",
+	Aliases: []string{"s"},
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) < 2 {
 			_ = cmd.Help()
@@ -21,5 +21,5 @@ var switchSnapshotCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(switchSnapshotCmd)
+	snapshotCmd.AddCommand(switchSnapshotCmd)
 }

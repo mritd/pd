@@ -6,6 +6,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"os"
 	"strconv"
+	"sync"
 )
 
 type VMInfo struct {
@@ -23,7 +24,7 @@ type SnapshotInfo struct {
 	Parent  string `json:"parent"`
 }
 
-func ListVMs(all bool) {
+func ListVMInfo(all bool) ([]VMInfo, error) {
 	var data string
 	var err error
 	if all {
@@ -32,11 +33,19 @@ func ListVMs(all bool) {
 		data, err = prlctl("list", "-f", "-j")
 	}
 	if err != nil {
-		logrus.Fatal(err)
+		return nil, err
 	}
 
 	var vms []VMInfo
 	err = jsoniter.Unmarshal([]byte(data), &vms)
+	if err != nil {
+		return nil, err
+	}
+	return vms, nil
+}
+
+func ListVM(all bool) {
+	vms, err := ListVMInfo(all)
 	if err != nil {
 		logrus.Fatal(err)
 	}
@@ -55,37 +64,45 @@ func ListVMs(all bool) {
 }
 
 func StartVM(vms []string) {
+	var wg sync.WaitGroup
+	wg.Add(len(vms))
+
 	for _, vm := range vms {
-		err := stdPrlctl("start", vm)
-		if err != nil {
-			logrus.Fatal(err)
-		}
+		go func(vm string) {
+			defer wg.Done()
+			logrus.Infof("Starting VM [%s]...", vm)
+
+			if err := stdPrlctl("start", vm); err != nil {
+				logrus.Errorf("Failed to start VM [%s]: %v", vm, err)
+			}
+		}(vm)
 	}
+
+	wg.Wait()
 }
 
 func StopVM(vms []string, force bool) {
-	var err error
-	for _, vm := range vms {
-		if force {
-			err = stdPrlctl("stop", vm, "--kill")
-		} else {
-			err = stdPrlctl("stop", vm)
-		}
-		if err != nil {
-			logrus.Fatal(err)
-		}
-	}
-}
+	var wg sync.WaitGroup
+	wg.Add(len(vms))
 
-func CreateSnapshot(vms []string, name string) {
-	var err error
 	for _, vm := range vms {
-		logrus.Infof("Create [%s] snapshot(%s)...", name,vm, )
-		err = stdPrlctl("snapshot", vm, "-n", name)
-		if err != nil {
-			logrus.Fatal(err)
-		}
+		go func(vm string, force bool) {
+			defer wg.Done()
+			logrus.Warnf("Stopping VM [%s]...", vm)
+
+			var err error
+			if force {
+				err = stdPrlctl("stop", vm, "--kill")
+			} else {
+				err = stdPrlctl("stop", vm)
+			}
+			if err != nil {
+				logrus.Errorf("Failed to stop VM [%s]: %v", vm, err)
+			}
+		}(vm, force)
 	}
+
+	wg.Wait()
 }
 
 func ListSnapshot(vm string) {
@@ -113,67 +130,102 @@ func ListSnapshot(vm string) {
 	table.Render()
 }
 
-func DeleteSnapshot(vms []string, name string) {
+func CreateSnapshot(vms []string, name string) {
+	var wg sync.WaitGroup
+	wg.Add(len(vms))
 	for _, vm := range vms {
-		logrus.Infof("Delete [%s] snapshot(%s)...", name, vm)
+		go func(vm, name string) {
+			defer wg.Done()
+			logrus.Infof("Create [%s] snapshot(%s)...", name, vm)
 
-		data, err := prlctl("snapshot-list", vm, "-j")
-		if err != nil {
-			logrus.Fatal(err)
-		}
-
-		var sps map[string]SnapshotInfo
-		err = jsoniter.Unmarshal([]byte(data), &sps)
-		if err != nil {
-			logrus.Fatal(err)
-		}
-		var spID string
-		for id, sp := range sps {
-			if sp.Name == name {
-				spID = id
-				break
+			if err := stdPrlctl("snapshot", vm, "-n", name); err != nil {
+				logrus.Errorf("VM [%s] create snapshot failed: %v", vm, err)
 			}
-		}
-		if spID == "" {
-			logrus.Warnf("VM [%s] snapshot(%s) not found.", vm,name)
-			continue
-		}
-
-		err = stdPrlctl("snapshot-delete", vm, "-i", spID)
-		if err != nil {
-			logrus.Fatal(err)
-		}
+		}(vm, name)
 	}
+	wg.Wait()
+}
+
+func DeleteSnapshot(vms []string, name string) {
+	var wg sync.WaitGroup
+	wg.Add(len(vms))
+
+	for _, vm := range vms {
+		go func(vm, name string) {
+			defer wg.Done()
+			logrus.Infof("Delete [%s] snapshot(%s)...", name, vm)
+
+			data, err := prlctl("snapshot-list", vm, "-j")
+			if err != nil {
+				logrus.Errorf("Failed to get VM [%s] snapshots: %v", vm, err)
+				return
+			}
+
+			var sps map[string]SnapshotInfo
+			err = jsoniter.Unmarshal([]byte(data), &sps)
+			if err != nil {
+				logrus.Errorf("Get VM [%s] snapshot info failed: %v", vm, err)
+				return
+			}
+			var spID string
+			for id, sp := range sps {
+				if sp.Name == name {
+					spID = id
+					break
+				}
+			}
+			if spID == "" {
+				logrus.Warnf("VM [%s] snapshot(%s) not found.", vm, name)
+				return
+			}
+
+			err = stdPrlctl("snapshot-delete", vm, "-i", spID)
+			if err != nil {
+				logrus.Errorf("Failed to delete VM [%s] snapshot: %v", vm, err)
+			}
+		}(vm, name)
+	}
+
+	wg.Wait()
 }
 
 func SwitchSnapshot(vms []string, name string) {
+	var wg sync.WaitGroup
+	wg.Add(len(vms))
+
 	for _, vm := range vms {
-		logrus.Infof("Swicth [%s] to snapshot %s...", name, vm)
+		go func(vm, name string) {
+			defer wg.Done()
+			logrus.Infof("Swicth VM [%s] to snapshot %s...", name, vm)
 
-		data, err := prlctl("snapshot-list", vm, "-j")
-		if err != nil {
-			logrus.Fatal(err)
-		}
-
-		var sps map[string]SnapshotInfo
-		err = jsoniter.Unmarshal([]byte(data), &sps)
-		if err != nil {
-			logrus.Fatal(err)
-		}
-		var spID string
-		for id, sp := range sps {
-			if sp.Name == name {
-				spID = id
-				break
+			data, err := prlctl("snapshot-list", vm, "-j")
+			if err != nil {
+				logrus.Errorf("Failed to get VM [%s] snapshots: %v", vm, err)
+				return
 			}
-		}
-		if spID == "" {
-			logrus.Fatalf("VM [%s] snapshot not found.", vm)
-		}
 
-		err = stdPrlctl("snapshot-switch", vm, "-i", spID)
-		if err != nil {
-			logrus.Fatal(err)
-		}
+			var sps map[string]SnapshotInfo
+			err = jsoniter.Unmarshal([]byte(data), &sps)
+			if err != nil {
+				logrus.Errorf("Get VM [%s] snapshot info failed: %v", vm, err)
+				return
+			}
+			var spID string
+			for id, sp := range sps {
+				if sp.Name == name {
+					spID = id
+					break
+				}
+			}
+			if spID == "" {
+				logrus.Errorf("VM [%s] snapshot(%s) not found.", vm, name)
+				return
+			}
+
+			err = stdPrlctl("snapshot-switch", vm, "-i", spID)
+			if err != nil {
+				logrus.Errorf("Failed to switch VM [%s] snapshot: %v", vm, err)
+			}
+		}(vm, name)
 	}
 }
