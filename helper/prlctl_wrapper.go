@@ -228,4 +228,6 @@ func SwitchSnapshot(vms []string, name string) {
 			}
 		}(vm, name)
 	}
+
+	wg.Wait()
 }
