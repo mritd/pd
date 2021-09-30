@@ -26,7 +26,7 @@ var startCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		if len(args) == 1 && args[0] == "docker" {
-			helper.StartDockerVM(args[0], true)
+			helper.StartDockerVM(args[0], false)
 		} else {
 			helper.StartVM(args)
 		}
