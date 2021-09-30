@@ -1,6 +1,7 @@
 package helper
 
 import (
+	"fmt"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/olekukonko/tablewriter"
 	"github.com/sirupsen/logrus"
@@ -28,9 +29,9 @@ func ListVMInfo(all bool) ([]VMInfo, error) {
 	var data string
 	var err error
 	if all {
-		data, err = prlctl("list", "-f", "-j", "-a")
+		data, err = prlctl("list", "-j", "-a")
 	} else {
-		data, err = prlctl("list", "-f", "-j")
+		data, err = prlctl("list", "-j")
 	}
 	if err != nil {
 		return nil, err
@@ -88,7 +89,7 @@ func StopVM(vms []string, force bool) {
 	for _, vm := range vms {
 		go func(vm string, force bool) {
 			defer wg.Done()
-			logrus.Warnf("Stopping VM [%s]...", vm)
+			logrus.Infof("Stopping VM %s...", vm)
 
 			var err error
 			if force {
@@ -153,18 +154,18 @@ func DeleteSnapshot(vms []string, name string) {
 	for _, vm := range vms {
 		go func(vm, name string) {
 			defer wg.Done()
-			logrus.Infof("Delete [%s] snapshot(%s)...", name, vm)
+			logrus.Infof("Delete %s snapshot --> %s...", name, vm)
 
 			data, err := prlctl("snapshot-list", vm, "-j")
 			if err != nil {
-				logrus.Errorf("Failed to get VM [%s] snapshots: %v", vm, err)
+				logrus.Errorf("Failed to get VM %s snapshots: %v", vm, err)
 				return
 			}
 
 			var sps map[string]SnapshotInfo
 			err = jsoniter.Unmarshal([]byte(data), &sps)
 			if err != nil {
-				logrus.Errorf("Get VM [%s] snapshot info failed: %v", vm, err)
+				logrus.Errorf("Get VM %s snapshot info failed: %v", vm, err)
 				return
 			}
 			var spID string
@@ -175,13 +176,13 @@ func DeleteSnapshot(vms []string, name string) {
 				}
 			}
 			if spID == "" {
-				logrus.Warnf("VM [%s] snapshot(%s) not found.", vm, name)
+				logrus.Warnf("VM %s snapshot(%s) not found.", vm, name)
 				return
 			}
 
 			err = stdPrlctl("snapshot-delete", vm, "-i", spID)
 			if err != nil {
-				logrus.Errorf("Failed to delete VM [%s] snapshot: %v", vm, err)
+				logrus.Errorf("Failed to delete VM %s snapshot: %v", vm, err)
 			}
 		}(vm, name)
 	}
@@ -196,18 +197,18 @@ func SwitchSnapshot(vms []string, name string) {
 	for _, vm := range vms {
 		go func(vm, name string) {
 			defer wg.Done()
-			logrus.Infof("Swicth VM [%s] to snapshot %s...", name, vm)
+			logrus.Infof("Swicth VM %s snapshot to %s...", name, vm)
 
 			data, err := prlctl("snapshot-list", vm, "-j")
 			if err != nil {
-				logrus.Errorf("Failed to get VM [%s] snapshots: %v", vm, err)
+				logrus.Errorf("Failed to get VM %s snapshots: %v", vm, err)
 				return
 			}
 
 			var sps map[string]SnapshotInfo
 			err = jsoniter.Unmarshal([]byte(data), &sps)
 			if err != nil {
-				logrus.Errorf("Get VM [%s] snapshot info failed: %v", vm, err)
+				logrus.Errorf("Get VM %s snapshot info failed: %v", vm, err)
 				return
 			}
 			var spID string
@@ -218,16 +219,37 @@ func SwitchSnapshot(vms []string, name string) {
 				}
 			}
 			if spID == "" {
-				logrus.Errorf("VM [%s] snapshot(%s) not found.", vm, name)
+				logrus.Errorf("VM %s snapshot(%s) not found.", vm, name)
 				return
 			}
 
 			err = stdPrlctl("snapshot-switch", vm, "-i", spID)
 			if err != nil {
-				logrus.Errorf("Failed to switch VM [%s] snapshot: %v", vm, err)
+				logrus.Errorf("Failed to switch VM %s snapshot: %v", vm, err)
 			}
 		}(vm, name)
 	}
 
 	wg.Wait()
+}
+
+func GetVMInfo(vm string) (VMInfo, error) {
+	data, err := prlctl("list", "-j", vm)
+	if err != nil {
+		return VMInfo{}, err
+	}
+	if data == "" {
+		return VMInfo{}, fmt.Errorf("VM %s not found", vm)
+	}
+
+	var vms []VMInfo
+	err = jsoniter.Unmarshal([]byte(data), &vms)
+	if err != nil {
+		return VMInfo{}, err
+	}
+	if len(vms) == 0 {
+		return VMInfo{}, fmt.Errorf("VM %s not found", vm)
+	}
+
+	return vms[0], nil
 }
