@@ -99,9 +99,9 @@ func StopVM(vms []string, force bool) {
 
 			var err error
 			if force {
-				err = stdPrlctl("stop", vm, "--kill")
+				_, err = prlctl("stop", vm, "--kill")
 			} else {
-				err = stdPrlctl("stop", vm)
+				_, err = prlctl("stop", vm)
 			}
 			if err != nil {
 				logrus.Errorf("Failed to stop VM [%s]: %v", vm, err)
