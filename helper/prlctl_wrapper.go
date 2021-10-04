@@ -32,9 +32,9 @@ func ListVMInfo(all bool) ([]VMInfo, error) {
 	var data string
 	var err error
 	if all {
-		data, err = prlctl("list", "-j", "-a")
+		data, err = prlctl("list", "-f", "-j", "-a")
 	} else {
-		data, err = prlctl("list", "-j")
+		data, err = prlctl("list", "-f", "-j")
 	}
 	if err != nil {
 		return nil, err
@@ -240,7 +240,7 @@ func SwitchSnapshot(vms []string, name string) {
 }
 
 func GetVMInfo(vm string) (VMInfo, error) {
-	data, err := prlctl("list", "-j", vm)
+	data, err := prlctl("list", "-f", "-j", vm)
 	if err != nil {
 		return VMInfo{}, err
 	}
