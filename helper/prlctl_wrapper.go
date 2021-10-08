@@ -28,6 +28,27 @@ type SnapshotInfo struct {
 	Parent  string `json:"parent"`
 }
 
+type Snapshot struct {
+	ID string `json:"id"`
+	SnapshotInfo
+}
+
+type Snapshots []Snapshot
+
+func (ss Snapshots) Len() int {
+	return len(ss)
+}
+
+func (ss Snapshots) Less(i, j int) bool {
+	t1, _ := time.Parse("2006-01-02 15:04:05", ss[i].Date)
+	t2, _ := time.Parse("2006-01-02 15:04:05", ss[j].Date)
+	return t1.Before(t2)
+}
+
+func (ss Snapshots) Swap(i, j int) {
+	ss[i], ss[j] = ss[j], ss[i]
+}
+
 func ListVMInfo(all bool) ([]VMInfo, error) {
 	var data string
 	var err error
@@ -123,6 +144,7 @@ func ListSnapshot(vm string) {
 	if err != nil {
 		logrus.Fatal(err)
 	}
+	ss := convert2Snapshots(sps)
 
 	table := tablewriter.NewWriter(os.Stdout)
 	table.SetAlignment(tablewriter.ALIGN_LEFT)
@@ -131,8 +153,8 @@ func ListSnapshot(vm string) {
 	table.SetCenterSeparator("|")
 
 	table.SetHeader([]string{"NAME", "CURRENT", "UUID", "STATE", "DATE"})
-	for id, sp := range sps {
-		table.Append([]string{sp.Name, strconv.FormatBool(sp.Current), deleteBrackets(id), sp.State, sp.Date})
+	for _, sp := range ss {
+		table.Append([]string{sp.Name, strconv.FormatBool(sp.Current), sp.ID, sp.State, sp.Date})
 	}
 	table.Render()
 }
@@ -174,16 +196,22 @@ func DeleteSnapshot(vms []string, name string) {
 				logrus.Errorf("Get VM %s snapshot info failed: %v", vm, err)
 				return
 			}
+
+			ss := convert2Snapshots(sps)
 			var spID string
-			for id, sp := range sps {
-				if sp.Name == name {
-					spID = id
+			for _, sp := range ss {
+				if sp.Name == name || sp.ID == name {
+					spID = sp.ID
 					break
 				}
 			}
 			if spID == "" {
-				logrus.Warnf("VM %s snapshot(%s) not found.", vm, name)
-				return
+				if name == "latest" && len(ss) > 0 {
+					spID = ss[len(ss)-1].ID
+				} else {
+					logrus.Warnf("VM %s snapshot(%s) not found.", vm, name)
+					return
+				}
 			}
 
 			err = stdPrlctl("snapshot-delete", vm, "-i", spID)
@@ -217,16 +245,22 @@ func SwitchSnapshot(vms []string, name string) {
 				logrus.Errorf("Get VM %s snapshot info failed: %v", vm, err)
 				return
 			}
+
+			ss := convert2Snapshots(sps)
 			var spID string
-			for id, sp := range sps {
-				if sp.Name == name || deleteBrackets(id) == name {
-					spID = id
+			for _, sp := range ss {
+				if sp.Name == name || sp.ID == name {
+					spID = sp.ID
 					break
 				}
 			}
 			if spID == "" {
-				logrus.Errorf("VM %s snapshot(%s) not found.", vm, name)
-				return
+				if name == "latest" && len(ss) > 0 {
+					spID = ss[len(ss)-1].ID
+				} else {
+					logrus.Errorf("VM %s snapshot(%s) not found.", vm, name)
+					return
+				}
 			}
 
 			err = stdPrlctl("snapshot-switch", vm, "-i", spID)

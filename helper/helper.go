@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"sort"
 	"strings"
 )
 
@@ -32,7 +33,23 @@ func stdPrlctl(cmds ...string) error {
 }
 
 func deleteBrackets(s string) string {
-	return strings.TrimFunc(s, func(r rune) bool {
-		return r == '{' || r == '}'
-	})
+	return strings.TrimSuffix(strings.TrimPrefix(s, "{"), "}")
+}
+
+func convert2Snapshots(infoMap map[string]SnapshotInfo) Snapshots {
+	var ss Snapshots
+	for id, info := range infoMap {
+		ss = append(ss, Snapshot{
+			ID: deleteBrackets(id),
+			SnapshotInfo: SnapshotInfo{
+				Name:    info.Name,
+				Date:    info.Date,
+				State:   info.State,
+				Current: info.Current,
+				Parent:  deleteBrackets(info.Parent),
+			},
+		})
+	}
+	sort.Sort(ss)
+	return ss
 }
