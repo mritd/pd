@@ -9,7 +9,7 @@ import (
 var deleteSnapshotCmd = &cobra.Command{
 	Use:     "delete",
 	Short:   "Delete Snapshot",
-	Aliases: []string{"d"},
+	Aliases: []string{"d","rm"},
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) < 2 {
 			_ = cmd.Help()
