@@ -219,7 +219,7 @@ func SwitchSnapshot(vms []string, name string) {
 			}
 			var spID string
 			for id, sp := range sps {
-				if sp.Name == name || id == name {
+				if sp.Name == name || deleteBrackets(id) == name {
 					spID = id
 					break
 				}
