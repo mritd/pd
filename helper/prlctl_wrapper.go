@@ -357,3 +357,35 @@ func DockerMount(vm string, bindingHome bool) error {
 
 	return nil
 }
+
+func SetVMCPU(vms []string, count int) {
+	var wg sync.WaitGroup
+	wg.Add(len(vms))
+	for _, vm := range vms {
+		go func(vm string, count int) {
+			defer wg.Done()
+			logrus.Infof("Set the number of CPU cores of the VM [%s] to %d...", vm, count)
+
+			if _, err := prlctl("set", vm, "--cpus", strconv.Itoa(count)); err != nil {
+				logrus.Errorf("Failed to set VM %s CPU cores: %v", vm, err)
+			}
+		}(vm, count)
+	}
+	wg.Wait()
+}
+
+func SetVMRAM(vms []string, size int) {
+	var wg sync.WaitGroup
+	wg.Add(len(vms))
+	for _, vm := range vms {
+		go func(vm string, size int) {
+			defer wg.Done()
+			logrus.Infof("Set the memory size of the VM [%s] to %d mb...", vm, size)
+
+			if _, err := prlctl("set", vm, "--memsize", strconv.Itoa(size)); err != nil {
+				logrus.Errorf("Failed to set VM %s Memsize: %v", vm, err)
+			}
+		}(vm, size)
+	}
+	wg.Wait()
+}
