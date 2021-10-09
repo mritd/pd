@@ -2,6 +2,7 @@ package helper
 
 import (
 	"errors"
+	"io"
 	"os"
 	"os/exec"
 	"sort"
@@ -52,4 +53,22 @@ func convert2Snapshots(infoMap map[string]SnapshotInfo) Snapshots {
 	}
 	sort.Sort(ss)
 	return ss
+}
+
+func FakeDate() error {
+	cmd := exec.Command("sudo","date", "010100002021")
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = io.Discard
+	cmd.Stderr = io.Discard
+
+	return cmd.Run()
+}
+
+func RestoreDate() error {
+	cmd := exec.Command("sudo","systemsetup", "-setnetworktimeserver", "time.apple.com")
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = io.Discard
+	cmd.Stderr = io.Discard
+
+	return cmd.Run()
 }

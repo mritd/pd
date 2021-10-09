@@ -99,7 +99,7 @@ func StartVM(vms []string) {
 			if vm == "docker" {
 				StartDockerVM(vm, false)
 			} else {
-				if err := stdPrlctl("start", vm); err != nil {
+				if _, err := prlctl("start", vm); err != nil {
 					logrus.Errorf("Failed to start vm [%s]: %v", vm, err)
 				}
 			}
@@ -167,7 +167,7 @@ func CreateSnapshot(vms []string, name string) {
 			defer wg.Done()
 			logrus.Infof("Create [%s] snapshot(%s)...", name, vm)
 
-			if err := stdPrlctl("snapshot", vm, "-n", name); err != nil {
+			if _,err := prlctl("snapshot", vm, "-n", name); err != nil {
 				logrus.Errorf("VM [%s] create snapshot failed: %v", vm, err)
 			}
 		}(vm, name)
@@ -214,7 +214,7 @@ func DeleteSnapshot(vms []string, name string) {
 				}
 			}
 
-			err = stdPrlctl("snapshot-delete", vm, "-i", spID)
+			_,err = prlctl("snapshot-delete", vm, "-i", spID)
 			if err != nil {
 				logrus.Errorf("Failed to delete VM %s snapshot: %v", vm, err)
 			}
@@ -263,7 +263,7 @@ func SwitchSnapshot(vms []string, name string) {
 				}
 			}
 
-			err = stdPrlctl("snapshot-switch", vm, "-i", spID)
+			_,err = prlctl("snapshot-switch", vm, "-i", spID)
 			if err != nil {
 				logrus.Errorf("Failed to switch VM %s snapshot: %v", vm, err)
 			}
